@@ -3,6 +3,7 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from fastapi import FastAPI, Depends
+from fastapi.middleware.cors import CORSMiddleware
 from models import Base  # Import your SQLAlchemy models
 
 # Import credentials from config.py
@@ -10,6 +11,7 @@ from config import DATABASE_USER, DATABASE_PASSWORD, DATABASE_HOST, DATABASE_POR
 
 # Construct the DATABASE_URL using credentials from config.py
 DATABASE_URL = f"postgresql://{DATABASE_USER}:{DATABASE_PASSWORD}@{DATABASE_HOST}:{DATABASE_PORT}/{DATABASE_NAME}"
+
 
 def ensure_database_exists(db_url: str):
     """
@@ -23,7 +25,7 @@ def ensure_database_exists(db_url: str):
 
     # Parse the connection URL.
     parsed_url = sa_url.make_url(db_url)
-    # Use a default database (typically 'postgres') to create the target database if necessary.
+    # Use the default database ('postgres') to create the target database if necessary.
     default_db_url = parsed_url.set(database="postgres")
 
     try:
@@ -46,8 +48,8 @@ def ensure_database_exists(db_url: str):
     exists = cur.fetchone()
 
     if not exists:
-        # Create the target database if it doesn't exist.
         try:
+            # Create the target database if it doesn't exist.
             cur.execute(
                 sql.SQL("CREATE DATABASE {}").format(
                     sql.Identifier(parsed_url.database)
@@ -62,7 +64,7 @@ def ensure_database_exists(db_url: str):
     cur.close()
     conn.close()
 
-    # Connect to the target database to create schemas.
+    # Now connect to the target database to create required schemas.
     try:
         conn = psycopg2.connect(
             host=parsed_url.host,
@@ -84,7 +86,8 @@ def ensure_database_exists(db_url: str):
     cur.close()
     conn.close()
 
-# Ensure the target database exists before proceeding.
+
+# Ensure the target database and required schemas exist.
 ensure_database_exists(DATABASE_URL)
 
 # Create the SQLAlchemy engine and session.
@@ -97,7 +100,21 @@ Base.metadata.create_all(bind=engine)
 # Initialize the FastAPI app.
 app = FastAPI(title="Python Backend with PostgreSQL")
 
-# Dependency to get a session per request.
+# Configure CORS middleware so your frontend (e.g., running on port 4200) can access the API.
+origins = [
+    "http://localhost:4200",
+    "http://127.0.0.1:4200",
+    # Add any additional origins as needed.
+]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Dependency: provide a new database session for each request.
 def get_db():
     db = SessionLocal()
     try:
@@ -105,9 +122,27 @@ def get_db():
     finally:
         db.close()
 
+
 @app.get("/")
 def read_root():
     return {"message": "Hello World from the FastAPI backend!"}
+
+class QualityAssessorFeedback(BaseModel):
+    contact_id: str
+    evaluator: str
+    complaints_flag: bool
+    vulnerability_flag: bool
+    complaints_reasoning: str
+    vulnerability_reasoning: str
+
+@app.post("/quality-assessor-feedback")
+def create_quality_assessor_feedback(feedback: QualityAssessorFeedback):
+    # Here you would insert the feedback into your PostgreSQL database.
+    # For demonstration purposes, we assume the insert is successful.
+    # If an error occurs, you can raise an HTTPException.
+    print("Received feedback:", feedback)
+    return {"message": "Feedback saved successfully"}
+
 
 if __name__ == "__main__":
     import uvicorn
