@@ -1,0 +1,4 @@
+# .gitignore
+node_modules/
+*.log
+*.zipfront_back_end.zip
