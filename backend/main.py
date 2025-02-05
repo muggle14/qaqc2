@@ -5,6 +5,8 @@ from sqlalchemy.orm import sessionmaker
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from models import Base  # Import your SQLAlchemy models
+from pydantic import BaseModel
+
 
 # Import credentials from config.py
 from config import DATABASE_USER, DATABASE_PASSWORD, DATABASE_HOST, DATABASE_PORT, DATABASE_NAME
@@ -104,6 +106,8 @@ app = FastAPI(title="Python Backend with PostgreSQL")
 origins = [
     "http://localhost:4200",
     "http://127.0.0.1:4200",
+    "http://localhost:8000",
+    "http://localhost:3000"
     # Add any additional origins as needed.
 ]
 app.add_middleware(
@@ -127,6 +131,10 @@ def get_db():
 def read_root():
     return {"message": "Hello World from the FastAPI backend!"}
 
+@app.get("/contact-details/{contact_id}")
+def get_contact_details(contact_id: str):
+    return {"contact_id": contact_id, "message": "Hello from the backend"}
+
 class QualityAssessorFeedback(BaseModel):
     contact_id: str
     evaluator: str
@@ -142,6 +150,23 @@ def create_quality_assessor_feedback(feedback: QualityAssessorFeedback):
     # If an error occurs, you can raise an HTTPException.
     print("Received feedback:", feedback)
     return {"message": "Feedback saved successfully"}
+
+# In your FastAPI backend (main.py)
+@app.get("/joined-data")
+def get_joined_data():
+    # Replace with your actual data-fetching logic.
+    return [
+        {
+            "contact_id": "CONTACT123",
+            "evaluator": "evaluator1",
+            "upload_timestamp": "2024-01-01T12:00:00Z",
+            "contact_conversations": [
+                {"transcript": "Sample transcript", "updated_at": "2024-01-01T12:05:00Z"}
+            ]
+        },
+        # Add additional records as needed.
+    ]
+
 
 
 if __name__ == "__main__":
